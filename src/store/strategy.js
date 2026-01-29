@@ -3,23 +3,37 @@ import axios from 'axios';
 
 export const useStrategyStore = defineStore('strategy', {
   state: () => ({
-    data: [], // Aquí se cargarán los Pilares e Intervenciones
+    data: [],
     isCarousel: false,
     globalKpi: 0,
-    alerts: 0
+    alerts: 0,
+    loading: false
   }),
   actions: {
     async fetchStrategy() {
-      // En la nube, apuntamos a la URL configurada en el modal
       const url = import.meta.env.VITE_API_URL || localStorage.getItem('cengob_url');
-      if (url) {
-        try {
-          const res = await axios.get(url);
-          this.data = res.data.data;
-          this.calculateGlobalStats();
-        } catch (e) {
-          console.error("Error cargando datos de la nube");
-        }
+      if (!url) return;
+      this.loading = true;
+      try {
+        const res = await axios.get(url);
+        // Ajuste según la estructura de respuesta de Google Apps Script o API
+        this.data = res.data.data || res.data; 
+        this.calculateGlobalStats();
+      } catch (e) {
+        console.error("Error cargando datos de la nube", e);
+      } finally {
+        this.loading = false;
+      }
+    },
+    async saveData() {
+      const url = import.meta.env.VITE_API_URL || localStorage.getItem('cengob_url');
+      if (!url) return;
+      try {
+        await axios.post(url, this.data);
+        this.calculateGlobalStats();
+      } catch (e) {
+        console.error("Error al guardar", e);
+        throw e;
       }
     },
     calculateGlobalStats() {
@@ -31,6 +45,22 @@ export const useStrategyStore = defineStore('strategy', {
       }));
       this.globalKpi = count > 0 ? Math.round(sum / count) : 0;
       this.alerts = alerts;
+    },
+    addPilar() {
+      this.data.push({
+        title: "Nuevo Eje Estratégico",
+        icon: "flag",
+        interventions: []
+      });
+    },
+    addIntervention(pIdx) {
+      this.data[pIdx].interventions.push({
+        name: "Nueva Intervención",
+        desc: "",
+        indicator: 0,
+        milestones: [],
+        tasks: []
+      });
     }
   }
 });
