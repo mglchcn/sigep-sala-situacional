@@ -1,9 +1,33 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 
+// Datos de ejemplo para que la app no inicie vacía
+const DEFAULT_DATA = [
+    {
+        title: "Industrialización",
+        icon: "factory",
+        interventions: [
+            {
+                name: "Complejo Siderúrgico del Mutún",
+                desc: "Sustitución de importaciones de acero.",
+                indicator: 85,
+                indResultado: "Reducción 50% import.",
+                indProducto: "Planta Fase 1",
+                milestones: [
+                    {date: "15 Oct", desc: "Encendido reactor"}
+                ],
+                tasks: [
+                    {name: "Gestión de Gasoducto", ministry: "YPFB"},
+                    {name: "Licencia Ambiental", ministry: "Min. Medio Ambiente"}
+                ]
+            }
+        ]
+    }
+];
+
 export const useStrategyStore = defineStore('strategy', {
   state: () => ({
-    data: [],
+    data: [], // Inicia vacío, pero se llenará en fetchStrategy
     isCarousel: false,
     globalKpi: 0,
     alerts: 0,
@@ -11,23 +35,39 @@ export const useStrategyStore = defineStore('strategy', {
   }),
   actions: {
     async fetchStrategy() {
+      // Intentar obtener URL de entorno o localStorage
       const url = import.meta.env.VITE_API_URL || localStorage.getItem('cengob_url');
-      if (!url) return;
+      
       this.loading = true;
+      
+      if (!url) {
+        // FALLBACK: Si no hay URL, cargamos los datos por defecto
+        console.warn("No hay URL configurada. Cargando datos de demostración.");
+        this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+        this.calculateGlobalStats();
+        this.loading = false;
+        return;
+      }
+
       try {
         const res = await axios.get(url);
-        // Ajuste según la estructura de respuesta de Google Apps Script o API
+        // Soporte para respuestas directas o envueltas en { data: ... }
         this.data = res.data.data || res.data; 
         this.calculateGlobalStats();
       } catch (e) {
-        console.error("Error cargando datos de la nube", e);
+        console.error("Error cargando datos de la nube, usando demo", e);
+        this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+        this.calculateGlobalStats();
       } finally {
         this.loading = false;
       }
     },
     async saveData() {
       const url = import.meta.env.VITE_API_URL || localStorage.getItem('cengob_url');
-      if (!url) return;
+      if (!url) {
+        alert("Modo Demo: No se puede guardar en la nube sin configurar VITE_API_URL o localStorage 'cengob_url'.");
+        return;
+      }
       try {
         await axios.post(url, this.data);
         this.calculateGlobalStats();
@@ -38,11 +78,17 @@ export const useStrategyStore = defineStore('strategy', {
     },
     calculateGlobalStats() {
       let sum = 0, count = 0, alerts = 0;
-      this.data.forEach(p => p.interventions.forEach(i => {
-        let v = parseFloat(i.indicator) || 0;
-        sum += v; count++;
-        if (v < 50) alerts++;
-      }));
+      if (this.data && this.data.length > 0) {
+          this.data.forEach(p => {
+            if(p.interventions) {
+                p.interventions.forEach(i => {
+                    let v = parseFloat(i.indicator) || 0;
+                    sum += v; count++;
+                    if (v < 50) alerts++;
+                });
+            }
+          });
+      }
       this.globalKpi = count > 0 ? Math.round(sum / count) : 0;
       this.alerts = alerts;
     },
@@ -54,6 +100,7 @@ export const useStrategyStore = defineStore('strategy', {
       });
     },
     addIntervention(pIdx) {
+      if (!this.data[pIdx].interventions) this.data[pIdx].interventions = [];
       this.data[pIdx].interventions.push({
         name: "Nueva Intervención",
         desc: "",
