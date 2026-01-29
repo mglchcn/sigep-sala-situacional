@@ -21,7 +21,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import InterventionCard from './InterventionCard.vue';
+import InterventionCard from './Intervention.vue';
 
 const props = defineProps(['pillar']);
 const average = computed(() => {
@@ -29,4 +29,5 @@ const average = computed(() => {
   if (!ints.length) return 0;
   return Math.round(ints.reduce((a, b) => a + (parseFloat(b.indicator) || 0), 0) / ints.length);
 });
+
 </script>
