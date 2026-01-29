@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 
-// Datos de ejemplo para que la app no inicie vacía
 const DEFAULT_DATA = [
     {
         title: "Industrialización",
@@ -13,13 +12,8 @@ const DEFAULT_DATA = [
                 indicator: 85,
                 indResultado: "Reducción 50% import.",
                 indProducto: "Planta Fase 1",
-                milestones: [
-                    {date: "15 Oct", desc: "Encendido reactor"}
-                ],
-                tasks: [
-                    {name: "Gestión de Gasoducto", ministry: "YPFB"},
-                    {name: "Licencia Ambiental", ministry: "Min. Medio Ambiente"}
-                ]
+                milestones: [{date: "15 Oct", desc: "Encendido reactor"}],
+                tasks: [{name: "Gestión de Gasoducto", ministry: "YPFB"}, {name: "Licencia Ambiental", ministry: "Min. Medio Ambiente"}]
             }
         ]
     }
@@ -27,35 +21,32 @@ const DEFAULT_DATA = [
 
 export const useStrategyStore = defineStore('strategy', {
   state: () => ({
-    data: [], // Inicia vacío, pero se llenará en fetchStrategy
+    data: [],
+    loading: false,
+    // Estado del Carrusel
     isCarousel: false,
+    currentSlide: 0,
+    carouselInterval: null,
+    // KPIs Globales
     globalKpi: 0,
-    alerts: 0,
-    loading: false
+    alerts: 0
   }),
   actions: {
     async fetchStrategy() {
-      // Intentar obtener URL de entorno o localStorage
       const url = import.meta.env.VITE_API_URL || localStorage.getItem('cengob_url');
-      
       this.loading = true;
-      
       if (!url) {
-        // FALLBACK: Si no hay URL, cargamos los datos por defecto
-        console.warn("No hay URL configurada. Cargando datos de demostración.");
         this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
         this.calculateGlobalStats();
         this.loading = false;
         return;
       }
-
       try {
         const res = await axios.get(url);
-        // Soporte para respuestas directas o envueltas en { data: ... }
-        this.data = res.data.data || res.data; 
+        this.data = res.data.data || res.data;
         this.calculateGlobalStats();
       } catch (e) {
-        console.error("Error cargando datos de la nube, usando demo", e);
+        console.error("Usando datos locales por error de conexión");
         this.data = JSON.parse(JSON.stringify(DEFAULT_DATA));
         this.calculateGlobalStats();
       } finally {
@@ -64,50 +55,68 @@ export const useStrategyStore = defineStore('strategy', {
     },
     async saveData() {
       const url = import.meta.env.VITE_API_URL || localStorage.getItem('cengob_url');
-      if (!url) {
-        alert("Modo Demo: No se puede guardar en la nube sin configurar VITE_API_URL o localStorage 'cengob_url'.");
-        return;
-      }
+      if (!url) return alert("Configure la URL de la nube primero.");
       try {
         await axios.post(url, this.data);
         this.calculateGlobalStats();
       } catch (e) {
-        console.error("Error al guardar", e);
-        throw e;
+        alert("Error al guardar en la nube");
       }
     },
     calculateGlobalStats() {
       let sum = 0, count = 0, alerts = 0;
-      if (this.data && this.data.length > 0) {
+      if (this.data) {
           this.data.forEach(p => {
-            if(p.interventions) {
-                p.interventions.forEach(i => {
-                    let v = parseFloat(i.indicator) || 0;
-                    sum += v; count++;
-                    if (v < 50) alerts++;
-                });
-            }
+            if(p.interventions) p.interventions.forEach(i => {
+                let v = parseFloat(i.indicator) || 0;
+                sum += v; count++;
+                if (v < 50) alerts++;
+            });
           });
       }
       this.globalKpi = count > 0 ? Math.round(sum / count) : 0;
       this.alerts = alerts;
     },
-    addPilar() {
-      this.data.push({
-        title: "Nuevo Eje Estratégico",
-        icon: "flag",
-        interventions: []
-      });
+    // --- GESTIÓN DE ELEMENTOS ---
+    addPilar() { this.data.push({ title: "Nuevo Eje", icon: "flag", interventions: [] }); },
+    deletePilar(idx) { if(confirm('¿Borrar Eje?')) this.data.splice(idx, 1); },
+    addIntervention(pIdx) { 
+        if(!this.data[pIdx].interventions) this.data[pIdx].interventions = [];
+        this.data[pIdx].interventions.push({ name: "Nueva", indicator: 0, milestones: [], tasks: [] }); 
     },
-    addIntervention(pIdx) {
-      if (!this.data[pIdx].interventions) this.data[pIdx].interventions = [];
-      this.data[pIdx].interventions.push({
-        name: "Nueva Intervención",
-        desc: "",
-        indicator: 0,
-        milestones: [],
-        tasks: []
-      });
+    deleteIntervention(pIdx, iIdx) { this.data[pIdx].interventions.splice(iIdx, 1); },
+    // --- GESTIÓN DE SUB-ITEMS ---
+    addMilestone(pIdx, iIdx) { 
+        if(!this.data[pIdx].interventions[iIdx].milestones) this.data[pIdx].interventions[iIdx].milestones = [];
+        this.data[pIdx].interventions[iIdx].milestones.push({date: "", desc: ""}); 
+    },
+    removeMilestone(pIdx, iIdx, mIdx) { this.data[pIdx].interventions[iIdx].milestones.splice(mIdx, 1); },
+    addTask(pIdx, iIdx) { 
+        if(!this.data[pIdx].interventions[iIdx].tasks) this.data[pIdx].interventions[iIdx].tasks = [];
+        this.data[pIdx].interventions[iIdx].tasks.push({name: "", ministry: ""}); 
+    },
+    removeTask(pIdx, iIdx, tIdx) { this.data[pIdx].interventions[iIdx].tasks.splice(tIdx, 1); },
+    
+    // --- LÓGICA DE CARRUSEL ---
+    toggleCarousel() {
+        this.isCarousel = !this.isCarousel;
+        if (this.isCarousel) {
+            this.currentSlide = 0;
+            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+            this.startLoop();
+        } else {
+            this.stopLoop();
+            if (document.exitFullscreen) document.exitFullscreen();
+        }
+    },
+    startLoop() {
+        this.stopLoop();
+        this.carouselInterval = setInterval(() => {
+            this.currentSlide = (this.currentSlide + 1) % this.data.length;
+        }, 10000); // 10 segundos por slide
+    },
+    stopLoop() {
+        if (this.carouselInterval) clearInterval(this.carouselInterval);
     }
   }
 });
