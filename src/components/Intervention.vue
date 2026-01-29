@@ -38,15 +38,16 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import Chart from 'chart.js/auto';
 
 const props = defineProps(['intervention']);
 const chartCanvas = ref(null);
+let chartInstance = null;
 
-onMounted(() => {
-  // Recreamos la lógica de creación de gauges del script original
-  new Chart(chartCanvas.value, {
+const renderChart = () => {
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(chartCanvas.value, {
     type: 'doughnut',
     data: {
       datasets: [{
@@ -55,7 +56,17 @@ onMounted(() => {
         borderWidth: 0
       }]
     },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { tooltip: { enabled: false } } }
+    options: { 
+      responsive: true, 
+      maintainAspectRatio: false, 
+      cutout: '75%',
+      layout: { padding: 5 }, // CORRECCIÓN: Añade espacio para evitar cortes
+      plugins: { tooltip: { enabled: false } } 
+    }
   });
-});
+};
+
+onMounted(renderChart);
+// Reactividad: si el indicador cambia, el gráfico se actualiza
+watch(() => props.intervention.indicator, renderChart);
 </script>
