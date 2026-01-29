@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 
+// Datos de ejemplo para que la app no inicie vacía
 const DEFAULT_DATA = [
     {
         title: "Industrialización",
@@ -23,11 +24,10 @@ export const useStrategyStore = defineStore('strategy', {
   state: () => ({
     data: [],
     loading: false,
-    // Estado del Carrusel
     isCarousel: false,
     currentSlide: 0,
     carouselInterval: null,
-    // KPIs Globales
+    timeBarWidth: 0, // Nuevo estado para controlar la animación
     globalKpi: 0,
     alerts: 0
   }),
@@ -97,22 +97,30 @@ export const useStrategyStore = defineStore('strategy', {
     },
     removeTask(pIdx, iIdx, tIdx) { this.data[pIdx].interventions[iIdx].tasks.splice(tIdx, 1); },
     
-    // --- LÓGICA DE CARRUSEL ---
+    // --- LÓGICA DE CARRUSEL Y PANTALLA COMPLETA ---
     toggleCarousel() {
         this.isCarousel = !this.isCarousel;
         if (this.isCarousel) {
             this.currentSlide = 0;
+            // Activa pantalla completa
             if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
             this.startLoop();
         } else {
             this.stopLoop();
-            if (document.exitFullscreen) document.exitFullscreen();
+            this.timeBarWidth = 0;
+            // Sale de pantalla completa
+            if (document.exitFullscreen && document.fullscreenElement) document.exitFullscreen();
         }
     },
     startLoop() {
         this.stopLoop();
+        this.timeBarWidth = 0; // Reinicia la barra
+        setTimeout(() => { this.timeBarWidth = 100; }, 50); // Inicia la animación
+
         this.carouselInterval = setInterval(() => {
             this.currentSlide = (this.currentSlide + 1) % this.data.length;
+            this.timeBarWidth = 0; // Reinicia para el siguiente slide
+            setTimeout(() => { this.timeBarWidth = 100; }, 50);
         }, 10000); // 10 segundos por slide
     },
     stopLoop() {
