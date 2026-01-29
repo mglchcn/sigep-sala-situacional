@@ -1,0 +1,63 @@
+:root {
+    --bg-app: #0b0e14;
+    --bg-header: #151b26;
+    --bg-card: #1c2333;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.4);
+    --text-main: #ffffff;
+    --text-muted: #94a3b8;
+    --border: #2d3748;
+    --success: #10b981;
+    --danger: #ef4444;
+}
+
+* { box-sizing: border-box; }
+
+body { 
+    margin: 0; 
+    padding: 0; 
+    font-family: 'Inter', sans-serif; 
+    background: var(--bg-app); 
+    color: var(--text-main); 
+    height: 100vh; 
+    overflow: hidden; 
+}
+
+/* Layout principal del Tablero */
+.app-layout { 
+    display: grid; 
+    grid-template-rows: 80px auto 1fr; 
+    height: 100vh; 
+}
+
+.navbar { 
+    background: var(--bg-header); 
+    border-bottom: 1px solid var(--border); 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 0 30px; 
+    z-index: 50; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
+}
+
+/* Estilos de los KPIs Globales */
+.header-stats { 
+    display: flex; 
+    align-items: center; 
+    gap: 30px; 
+    background: rgba(255,255,255,0.03); 
+    padding: 10px 30px; 
+    border-radius: 50px; 
+    border: 1px solid var(--border); 
+}
+
+.stat-box .value { 
+    font-size: 1.5rem; 
+    font-weight: 900; 
+    line-height: 1; 
+}
+
+.stat-box .value.danger { 
+    color: var(--danger); 
+}
